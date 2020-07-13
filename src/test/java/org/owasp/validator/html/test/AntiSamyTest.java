@@ -1409,7 +1409,7 @@ static final String test33 = "<html>\n"
           + "  <h1>Tricky Encoding</h1>\n"
           + "  <h2>NOT Sanitized by AntiSamy</h2>\n"
           + "  <ol>\n"
-          + "    <li><h3>svg onload=alert follows:</h3><svg onload=alert(1)//</li>\n"
+          + "    <li><h3>svg onload=alert(1) follows:</h3><svg onload=alert(1)//</li>\n"
           + "  </ol>\n"
           + "</body>\n"
           + "</html>";
@@ -1424,5 +1424,46 @@ static final String test33 = "<html>\n"
         //System.out.println("SAX parser: " + as.scan(test40, policy, AntiSamy.SAX).getCleanHTML());
         assertThat(as.scan(test40, policy, AntiSamy.DOM).getCleanHTML(), not(containsString("<svg onload=alert(1)//")));
         //System.out.println("DOM parser: " + as.scan(test40, policy, AntiSamy.DOM).getCleanHTML());
+    }
+    
+    static final String test44a = "<html>\n"
+            + "<head>\n"
+            + "  <title>Test</title>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "  <h1>Style</h1>\n"
+            + "  <h2>NOT Sanitized by AntiSamy</h2>\n"
+            + "  <ol>\n"
+            + "    <li><h3>'style/onload=alert(document.domain)' follows:</h3><style/onload=alert(document.domain)></li>\n"
+            + "  </ol>\n"
+            + "</body>\n"
+            + "</html>";
+
+    static final String test44b = "<html>\n"
+            + "<head>\n"
+            + "  <title>Test</title>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "  <h1>Style</h1>\n"
+            + "  <h2>NOT Sanitized by AntiSamy</h2>\n"
+            + "  <ol>\n"
+            + "    <li><h3>'style/onload=alert(document.domain) (withSpaceAfter)' follows:</h3><style/onload=alert(document.domain)> </li>\n"
+            + "  </ol>\n"
+            + "</body>\n"
+            + "</html>";
+
+    @Test
+    public void testGithubIssue44() throws ScanException, PolicyException {
+
+    	// Concern is that: <style/onload=alert(document.domain)>  does not get cleansed, or silently fails.
+    	
+    	//Policy ebayPolicy = Policy.getInstance(getClass().getResource("/antisamy-ebay.xml"));
+        CleanResults cr = as.scan(test44a, policy, AntiSamy.SAX);
+        System.out.println("Test44a: =========getCleanHTML()============\n"+cr.getCleanHTML());
+        System.out.println("Test44a: =========getErrorMessages()========\n"+cr.getErrorMessages());
+        
+        cr = as.scan(test44b, policy, AntiSamy.SAX);
+        System.out.println("Test44b: =========getCleanHTML()============\n"+cr.getCleanHTML());
+        System.out.println("Test44b: =========getErrorMessages()========\n"+cr.getErrorMessages());
     }
 }
