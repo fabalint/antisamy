@@ -28,6 +28,7 @@ public class InternalPolicy extends Policy {
     private final boolean preserveComments;
     private final boolean embedStyleSheets;
     private final boolean isEncodeUnknownTag;
+    private final boolean isValidateUnknownTag;
     private final boolean allowDynamicAttributes;
 
 
@@ -44,7 +45,8 @@ public class InternalPolicy extends Policy {
         useXhtml = isTrue(Policy.USE_XHTML);
         embedTag = getTagByLowercaseName("embed");
         this.onUnknownTag = getDirective("onUnknownTag");
-        this.isEncodeUnknownTag = "encode".equals(onUnknownTag);
+        this.isEncodeUnknownTag = Policy.ACTION_ENCODE.equals(onUnknownTag);
+        this.isValidateUnknownTag = Policy.ACTION_VALIDATE.equals(onUnknownTag);
         this.preserveComments = isTrue(Policy.PRESERVE_COMMENTS);
         this.styleTag = getTagByLowercaseName("style");
         this.embedStyleSheets = isTrue(Policy.EMBED_STYLESHEETS);
@@ -64,7 +66,8 @@ public class InternalPolicy extends Policy {
         useXhtml = isTrue(Policy.USE_XHTML);
         embedTag = getTagByLowercaseName("embed");
         this.onUnknownTag = getDirective("onUnknownTag");
-        this.isEncodeUnknownTag = "encode".equals(onUnknownTag);
+        this.isEncodeUnknownTag = Policy.ACTION_ENCODE.equals(onUnknownTag);
+        this.isValidateUnknownTag = Policy.ACTION_VALIDATE.equals(onUnknownTag);
         this.preserveComments = isTrue(Policy.PRESERVE_COMMENTS);
         this.styleTag = getTagByLowercaseName("style");
         this.embedStyleSheets = isTrue(Policy.EMBED_STYLESHEETS);
@@ -134,6 +137,10 @@ public class InternalPolicy extends Policy {
 
     public boolean isEncodeUnknownTag() {
         return isEncodeUnknownTag;
+    }
+    
+    public boolean isValidateUnknownTag() {
+        return isValidateUnknownTag;
     }
 
     public boolean isAllowDynamicAttributes() {
