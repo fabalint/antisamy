@@ -281,12 +281,12 @@ public class AntiSamyDOMScanner extends AbstractAntiSamyScanner {
             tagRule = Constants.BASIC_PARAM_TAG_RULE;
         }
 
-        if ((tagRule == null && policy.isEncodeUnknownTag()) || (tagRule != null && tagRule.isAction( "encode"))) {
+        if ((tagRule == null && policy.isEncodeUnknownTag()) || (tagRule != null && tagRule.isAction( Policy.ACTION_ENCODE))) {
             encodeTag(currentStackDepth, ele, tagName, eleChildNodes);
+        } else if ((tagRule == null && policy.isValidateUnknownTag()) || (tagRule != null && tagRule.isAction( Policy.ACTION_VALIDATE))) {
+            actionValidate(currentStackDepth, ele, parentNode, tagName, tagNameLowerCase, tagRule, masqueradingParam, embedTag, eleChildNodes);
         } else if (tagRule == null || tagRule.isAction( Policy.ACTION_FILTER)) {
             actionFilter(currentStackDepth, ele, tagName, tagRule, eleChildNodes);
-        } else if (tagRule.isAction( Policy.ACTION_VALIDATE)) {
-            actionValidate(currentStackDepth, ele, parentNode, tagName, tagNameLowerCase, tagRule, masqueradingParam, embedTag, eleChildNodes);
         } else if (tagRule.isAction( Policy.ACTION_TRUNCATE)) {
             actionTruncate(ele, tagName, eleChildNodes);
         } else {
