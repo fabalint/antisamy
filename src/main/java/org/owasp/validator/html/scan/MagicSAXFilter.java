@@ -262,125 +262,25 @@ public class MagicSAXFilter extends DefaultFilter implements XMLDocumentFilter {
 			// we are in removal-mode, so remove this tag as well
 			// we also remove all child elements of a style element
 			this.operations.push( Ops.REMOVE);
-		} else if ((tag == null && policy.isEncodeUnknownTag()) || (tag != null && tag.isAction( "encode" ))) {
+		} else if ((tag == null && policy.isEncodeUnknownTag()) || (tag != null && tag.isAction( Policy.ACTION_ENCODE ))) {
 			String name = "<" + element.localpart + ">";
 			super.characters( new XMLString( name.toCharArray(), 0, name.length() ), augs );
 			this.operations.push(Ops.ENCODE);
+		} else if ((tag == null && policy.isValidateUnknownTag()) || (tag != null && tag.isAction( Policy.ACTION_VALIDATE ))) {
+
+			validattributes = doValidate(element, attributes, tag, masqueradingParam, embedName, embedValue,
+					validattributes);
+			
 		} else if (tag == null) {
 			addError( ErrorMessageUtil.ERROR_TAG_NOT_IN_POLICY,
                       new Object[]{ HTMLEntityEncoder.htmlEntityEncode( element.localpart ) } );
 			this.operations.push(Ops.FILTER);
-		} else if (tag.isAction( "filter")) {
+		} else if (tag.isAction( Policy.ACTION_FILTER)) {
 			addError(ErrorMessageUtil.ERROR_TAG_FILTERED, new Object[] {
 				HTMLEntityEncoder.htmlEntityEncode(element.localpart)
 			});
 			this.operations.push(Ops.FILTER);
-		} else if (tag.isAction( "validate")) {
-
-			boolean isStyle = "style".endsWith(element.localpart);
-
-				// validate all attributes, we need to do this now to find out
-				// how to deal with the element
-				boolean removeTag = false;
-				boolean filterTag = false;
-				for (int i = 0; i < attributes.getLength(); i++) {
-					String name = attributes.getQName(i);
-					String value = attributes.getValue(i);
-					String nameLower = name.toLowerCase();
-					Attribute attribute = tag.getAttributeByName(nameLower);
-					if (attribute == null) {
-						// no policy defined, perhaps it is a global attribute
-						attribute = policy.getGlobalAttributeByName(nameLower);
-						if (attribute == null && policy.isAllowDynamicAttributes()) {
-						    // not a global attribute, perhaps it is a dynamic attribute, if allowed
-						    attribute = policy.getDynamicAttributeByName(nameLower);
-						}
-					}
-					// boolean isAttributeValid = false;
-					if ("style".equalsIgnoreCase(name)) {
-						CssScanner styleScanner = makeCssScanner();
-						try {
-							CleanResults cr = styleScanner.scanInlineStyle(value, element.localpart, maxInputSize);
-							attributes.setValue(i, cr.getCleanHTML());
-							validattributes.addAttribute(makeSimpleQname(name), "CDATA", cr.getCleanHTML());
-							errorMessages.addAll(cr.getErrorMessages());
-						} catch (ScanException e) {
-							addError(ErrorMessageUtil.ERROR_CSS_ATTRIBUTE_MALFORMED, new Object[] {
-									element.localpart, HTMLEntityEncoder.htmlEntityEncode(value)
-							});
-						}
-					} else if (attribute != null) {
-						// validate the values against the policy
-						boolean isValid = false;
-                        if (attribute.containsAllowedValue(value.toLowerCase())) {
-                            validattributes.addAttribute(makeSimpleQname(name), "CDATA", value);
-                            isValid = true;
-                        }
-
-
-                        if (!isValid) {
-                            isValid = attribute.matchesAllowedExpression(value);
-                            if (isValid) {
-                                validattributes.addAttribute(makeSimpleQname(name), "CDATA", value);
-                            }
-                        }
-
-
-                        // if value or regexp matched, attribute is already
-						// copied, but what happens if not
-						if (!isValid && "removeTag".equals(attribute.getOnInvalid())) {
-							
-							addError(ErrorMessageUtil.ERROR_ATTRIBUTE_INVALID_REMOVED,
-								new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
-							
-							removeTag = true;
-							
-						} else if (!isValid && ("filterTag".equals(attribute.getOnInvalid()) || masqueradingParam)) {
-							
-							addError(ErrorMessageUtil.ERROR_ATTRIBUTE_CAUSE_FILTER, 
-								new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
-							
-							filterTag = true;
-							
-						} else if (!isValid) {
-							addError(ErrorMessageUtil.ERROR_ATTRIBUTE_INVALID, new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
-						}
-						
-					} else { // attribute == null
-						addError(ErrorMessageUtil.ERROR_ATTRIBUTE_NOT_IN_POLICY, new Object[] {
-								element.localpart, HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value)
-						});
-						
-						if (masqueradingParam) {
-							filterTag = true;
-						}
-					}
-				}
-
-				if (removeTag) {
-					this.operations.push(Ops.REMOVE);
-				} else if (isStyle) {
-					this.operations.push(Ops.CSS);
-					cssContent = new StringBuffer();
-					cssAttributes = validattributes;
-				} else if (filterTag) {
-					this.operations.push(Ops.FILTER);
-				} else {
-
-					if (isNofollowAnchors && "a".equals(element.localpart)) {
-						validattributes.addAttribute(makeSimpleQname("rel"), "CDATA", "nofollow");
-					}
-
-					if (masqueradingParam) {
-						validattributes = new XMLAttributesImpl();
-						validattributes.addAttribute(makeSimpleQname("name"), "CDATA", embedName);
-						validattributes.addAttribute(makeSimpleQname("value"), "CDATA", embedValue);
-					}
-
-					this.operations.push(Ops.KEEP);
-				}
-			
-		} else if (tag.isAction( "truncate")) {
+		} else if (tag.isAction( Policy.ACTION_TRUNCATE)) {
 			this.operations.push(Ops.TRUNCATE);
 		} else {
 			// no options left, so the tag will be removed
@@ -397,6 +297,113 @@ public class MagicSAXFilter extends DefaultFilter implements XMLDocumentFilter {
 			// copy the element, but only copy accepted attributes
 			super.startElement(element, validattributes, augs);
 		}
+	}
+
+	private XMLAttributes doValidate(QName element, XMLAttributes attributes, Tag tag, boolean masqueradingParam,
+			String embedName, String embedValue, XMLAttributes validattributes) {
+		boolean isStyle = "style".endsWith(element.localpart);
+
+			// validate all attributes, we need to do this now to find out
+			// how to deal with the element
+			boolean removeTag = false;
+			boolean filterTag = false;
+			for (int i = 0; i < attributes.getLength(); i++) {
+				String name = attributes.getQName(i);
+				String value = attributes.getValue(i);
+				String nameLower = name.toLowerCase();
+				Attribute attribute = tag.getAttributeByName(nameLower);
+				if (attribute == null) {
+					// no policy defined, perhaps it is a global attribute
+					attribute = policy.getGlobalAttributeByName(nameLower);
+					if (attribute == null && policy.isAllowDynamicAttributes()) {
+					    // not a global attribute, perhaps it is a dynamic attribute, if allowed
+					    attribute = policy.getDynamicAttributeByName(nameLower);
+					}
+				}
+				// boolean isAttributeValid = false;
+				if ("style".equalsIgnoreCase(name)) {
+					CssScanner styleScanner = makeCssScanner();
+					try {
+						CleanResults cr = styleScanner.scanInlineStyle(value, element.localpart, maxInputSize);
+						attributes.setValue(i, cr.getCleanHTML());
+						validattributes.addAttribute(makeSimpleQname(name), "CDATA", cr.getCleanHTML());
+						errorMessages.addAll(cr.getErrorMessages());
+					} catch (ScanException e) {
+						addError(ErrorMessageUtil.ERROR_CSS_ATTRIBUTE_MALFORMED, new Object[] {
+								element.localpart, HTMLEntityEncoder.htmlEntityEncode(value)
+						});
+					}
+				} else if (attribute != null) {
+					// validate the values against the policy
+					boolean isValid = false;
+		            if (attribute.containsAllowedValue(value.toLowerCase())) {
+		                validattributes.addAttribute(makeSimpleQname(name), "CDATA", value);
+		                isValid = true;
+		            }
+
+
+		            if (!isValid) {
+		                isValid = attribute.matchesAllowedExpression(value);
+		                if (isValid) {
+		                    validattributes.addAttribute(makeSimpleQname(name), "CDATA", value);
+		                }
+		            }
+
+
+		            // if value or regexp matched, attribute is already
+					// copied, but what happens if not
+					if (!isValid && "removeTag".equals(attribute.getOnInvalid())) {
+						
+						addError(ErrorMessageUtil.ERROR_ATTRIBUTE_INVALID_REMOVED,
+							new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
+						
+						removeTag = true;
+						
+					} else if (!isValid && ("filterTag".equals(attribute.getOnInvalid()) || masqueradingParam)) {
+						
+						addError(ErrorMessageUtil.ERROR_ATTRIBUTE_CAUSE_FILTER, 
+							new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
+						
+						filterTag = true;
+						
+					} else if (!isValid) {
+						addError(ErrorMessageUtil.ERROR_ATTRIBUTE_INVALID, new Object[] { tag.getName(), HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value) });
+					}
+					
+				} else { // attribute == null
+					addError(ErrorMessageUtil.ERROR_ATTRIBUTE_NOT_IN_POLICY, new Object[] {
+							element.localpart, HTMLEntityEncoder.htmlEntityEncode(name), HTMLEntityEncoder.htmlEntityEncode(value)
+					});
+					
+					if (masqueradingParam) {
+						filterTag = true;
+					}
+				}
+			}
+
+			if (removeTag) {
+				this.operations.push(Ops.REMOVE);
+			} else if (isStyle) {
+				this.operations.push(Ops.CSS);
+				cssContent = new StringBuffer();
+				cssAttributes = validattributes;
+			} else if (filterTag) {
+				this.operations.push(Ops.FILTER);
+			} else {
+
+				if (isNofollowAnchors && "a".equals(element.localpart)) {
+					validattributes.addAttribute(makeSimpleQname("rel"), "CDATA", "nofollow");
+				}
+
+				if (masqueradingParam) {
+					validattributes = new XMLAttributesImpl();
+					validattributes.addAttribute(makeSimpleQname("name"), "CDATA", embedName);
+					validattributes.addAttribute(makeSimpleQname("value"), "CDATA", embedValue);
+				}
+
+				this.operations.push(Ops.KEEP);
+			}
+		return validattributes;
 	}
 
 	private QName makeSimpleQname(String name) {
