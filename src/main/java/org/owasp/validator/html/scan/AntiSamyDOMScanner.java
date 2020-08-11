@@ -284,6 +284,9 @@ public class AntiSamyDOMScanner extends AbstractAntiSamyScanner {
         if ((tagRule == null && policy.isEncodeUnknownTag()) || (tagRule != null && tagRule.isAction( Policy.ACTION_ENCODE))) {
             encodeTag(currentStackDepth, ele, tagName, eleChildNodes);
         } else if ((tagRule == null && policy.isValidateUnknownTag()) || (tagRule != null && tagRule.isAction( Policy.ACTION_VALIDATE))) {
+            if (tagRule == null) {
+                tagRule = new Tag(tagNameLowerCase, new HashMap<String, Attribute>(), Policy.ACTION_VALIDATE);
+            }
             actionValidate(currentStackDepth, ele, parentNode, tagName, tagNameLowerCase, tagRule, masqueradingParam, embedTag, eleChildNodes);
         } else if (tagRule == null || tagRule.isAction( Policy.ACTION_FILTER)) {
             actionFilter(currentStackDepth, ele, tagName, tagRule, eleChildNodes);
